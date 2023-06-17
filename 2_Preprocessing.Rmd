@@ -1,0 +1,389 @@
+---
+title: "Data preprocessing"
+author: "Laurin Schaller"
+date: "2023-06-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup 
+We need Rsamtools to load the bam-files and to export the reduced datasets.
+
+```{r}
+suppressPackageStartupMessages({
+  library(Rsamtools)
+  library(GenomicAlignments)
+  library(epiwraps)
+  library(GenomicRanges)
+})
+```
+
+
+# Data preprocessing
+
+## Data download
+
+Before loading the large amounts of data we are starting with just one mark: H3K9me3
+
+First we are downloading the BAM files from the MM cell line MM.1S which are aligned to the GRCh38 reference genome.
+
+```{r, eval=FALSE}
+options(timeout = 999999)
+download.file("https://www.encodeproject.org/files/ENCFF664NUE/@@download/ENCFF664NUE.bam", "MM.1S_H3K9Me3_GRCh38_Repl1.bam", mode = "wb")
+download.file("https://www.encodeproject.org/files/ENCFF193NKB/@@download/ENCFF193NKB.bam", "MM.1S_H3K9Me3_GRCh38_Repl2.bam", mode = "wb")
+```
+
+
+## Loading and Reduction of datasets to chromosome 1
+
+Originally I tried to reduce the bam files directly but could not load them without errors. I then tried to call peaks first and only export the chromosome 1 peaks. But this did not work either.
+
+
+The code gave me an invalid BAM binary header error. After some investigating it appears that this was due to the missing *mode="wb"* in the file download. bam-files are binary files and for binary downloads on windows this parameter needs to be set for proper downloads.
+
+```{r}
+indexBam("MM.1S_H3K9Me3_GRCh38_Repl2.bam")
+
+#bam_data <- scanBam("MM.1S_H3K9Me3_GRCh38_Repl2.bam", which="1")
+
+#MM.1S_H3K9Me3_GRCh38_Repl2 = BamFile("MM.1S_H3K9Me3_GRCh38_Repl2.bam")
+#which <- as(seqinfo(MM.1S_H3K9Me3_GRCh38_Repl2)["seq1"])
+
+param <- ScanBamParam(which = GRanges("chr1:1-9999999"))
+MM.1S_H3K9Me3_GRCh38_Repl2 <- scanBam("MM.1S_H3K9Me3_GRCh38_Repl2.bam", param = param)
+```
+Pipeline
+
+```{r}
+files <- list.files(pattern = ".bam$")
+files
+```
+
+
+```{r}
+MM.1S_H3K9Me3_GRCh38_Repl1 <- scanBam("MM.1S_H3K9Me3_GRCh38_Repl2.bam")
+```
+
+
+```{r}
+chr1 <- subset(MM.1S_H3K9Me3_GRCh38_Repl1, rname == "chr1")
+```
+
+```{r, eval=FALSE}
+options(timeout = 999999)
+
+#H3K9me3
+downloadLinks <- c("https://www.encodeproject.org/files/ENCFF674OHP/@@download/ENCFF674OHP.bam", "https://www.encodeproject.org/files/ENCFF270IYZ/@@download/ENCFF270IYZ.bam", "https://www.encodeproject.org/files/ENCFF624XXC/@@download/ENCFF624XXC.bam", "https://www.encodeproject.org/files/ENCFF818DII/@@download/ENCFF818DII.bam", "https://www.encodeproject.org/files/ENCFF569BNQ/@@download/ENCFF569BNQ.bam", "https://www.encodeproject.org/files/ENCFF626HHQ/@@download/ENCFF626HHQ.bam")
+fileNames <- c("MM.1S_H3K4Me3_GRCh38_Repl1.bam", "MM.1S_H3K4Me3_GRCh38_Repl2.bam", "H929_H3K4Me3_GRCh38_Repl1.bam", "H929_H3K4Me3_GRCh38_Repl2.bam", "F43_H3K4Me3_GRCh38_Repl1.bam", "F27_H3K4Me3_GRCh38_Repl1.bam")
+
+# Loop through the lists and download files
+for (i in seq_along(downloadLinks)) {
+  download.file(downloadLinks[i], fileNames[i], mode = "wb")
+}
+```
+
+```{r, eval=FALSE}
+#H3K9me3
+downloadLinks <- c("https://www.encodeproject.org/files/ENCFF086FJX/@@download/ENCFF086FJX.bam", "https://www.encodeproject.org/files/ENCFF500IZS/@@download/ENCFF500IZS.bam")
+fileNames <- c("F43_H3K9Me3_GRCh38_Repl1.bam", "M37_H3K9Me3_GRCh38_Repl1.bam")
+
+# Loop through the lists and download files
+for (i in seq_along(downloadLinks)) {
+  download.file(downloadLinks[i], fileNames[i], mode = "wb")
+}
+```
+```{r, eval=FALSE}
+options(timeout = 999999)
+
+#H3K27ac
+downloadLinks <- c("https://www.encodeproject.org/files/ENCFF848FKI/@@download/ENCFF848FKI.bam", "https://www.encodeproject.org/files/ENCFF717USZ/@@download/ENCFF717USZ.bam", "https://www.encodeproject.org/files/ENCFF670RFC/@@download/ENCFF670RFC.bam", "https://www.encodeproject.org/files/ENCFF230NOF/@@download/ENCFF230NOF.bam", "https://www.encodeproject.org/files/ENCFF875DUO/@@download/ENCFF875DUO.bam", "https://www.encodeproject.org/files/ENCFF912USM/@@download/ENCFF912USM.bam", "https://www.encodeproject.org/files/ENCFF404HKA/@@download/ENCFF404HKA.bam")
+fileNames <- c("MM.1S_H3K27Ac_GRCh38_Repl1.bam", "MM.1S_H3K27Ac_GRCh38_Repl2.bam", "H929_H3K27Ac_GRCh38_Repl1.bam", "H929_H3K27Ac_GRCh38_Repl2.bam", "F27_H3K27Ac_GRCh38_Repl1.bam", "F27_H3K27Ac_GRCh38_Repl2.bam", "M37_H3K27Ac_GRCh38_Repl1.bam")
+
+# Loop through the lists and download files
+for (i in seq_along(downloadLinks)) {
+  download.file(downloadLinks[i], fileNames[i], mode = "wb")
+}
+```
+
+## Peak calling
+
+When looking at the callPeaks function from the epiwraps package we can see that it takes the bam files as inputs and it would also like a fragment length. However the documentation says it doesn't need to be too precise. However we can try feeding it this information by looking up the fragment length on ENCODE. This is the length of DNA fragments that were captured after sonnification.
+
+On the experiment summary pages we find a "size range" property which should be a fragment length we are looking for. In one dataset there was no "size range" property so I set it to 200, which is the default of callPeaks.
+
+However I ran into problems using this approach. It gave me a subscript out of bounds error. Removing the fragment length argument however reduced the candidate regions:
+
+> peaks <- callPeaks("MM.1S_H3K9Me3_GRCh38_Repl2.bam", fragLength=450L)
+Reading signal and identifying candidate regions...
+Reading signal coverage...
+911562 initial candidate regions
+Getting strand information
+24851 peaks after filtering
+Reading signal coverage...
+768275 initial candidate regions
+Error in h(simpleError(msg, call)) : 
+  Fehler bei der Auswertung des Argumentes 'x' bei der Methodenauswahl für Funktion 'Reduce': subscript contains out-of-bounds ranges
+> peaks <- callPeaks("MM.1S_H3K9Me3_GRCh38_Repl2.bam")
+Reading signal and identifying candidate regions...
+Reading signal coverage...
+480067 initial candidate regions
+Getting strand information
+7649 peaks after filtering
+Reading signal coverage...
+331053 initial candidate regions
+Getting strand information
+4173 peaks after filtering
+Reading signal coverage...
+446063 initial candidate regions
+Getting strand information
+7772 peaks after filtering
+Reading signal coverage...
+356807 initial candidate regions
+Getting strand information
+5142 peaks after filtering
+Identified 24736 candidate regions
+Computing significance...
+(In the absence of a control, FDR is unlikely to be calibrated)
+Reporting 201 regions, 66 with FDR<0.05
+
+I figured out that choosing the lower end of the reported fragment length would work:
+> peaks <- callPeaks("MM.1S_H3K9Me3_GRCh38_Repl2.bam", fragLength=300L)
+Reading signal and identifying candidate regions...
+Reading signal coverage...
+794132 initial candidate regions
+Getting strand information
+14408 peaks after filtering
+Reading signal coverage...
+602983 initial candidate regions
+Getting strand information
+8017 peaks after filtering
+Reading signal coverage...
+705837 initial candidate regions
+Getting strand information
+14596 peaks after filtering
+Reading signal coverage...
+630307 initial candidate regions
+Getting strand information
+9660 peaks after filtering
+Identified 46681 candidate regions
+Computing significance...
+(In the absence of a control, FDR is unlikely to be calibrated)
+Reporting 193 regions, 49 with FDR<0.05
+
+```{r}
+??callPeaks
+# make a list of file names,here for H3K9Me3
+#bamFiles <- c("H929_H3K27Me3_GRCh38_Repl2.bam", "F27_H3K27Me3_GRCh38_Repl1.bam", "F27_H3K27Me3_GRCh38_Repl2.bam", "M21_H3K27Me3_GRCh38_Repl1.bam", "M37_H3K27Me3_GRCh38_Repl1.bam")
+
+# fragment length vector
+fragLen <- c(400L, 400L, 300L, 300L, 200L, 200L, 200L)
+
+# build a list of file names to save the peaks data as, including limitation to chr1
+bedFiles <- sub(".bam", "_peaks.bed", fileNames)
+chr1bedFiles <- sub(".bam", "_peaks_chr1.bed", fileNames)
+
+# go through each
+# first build a bai index file to prevent errors in callPeaks
+# save a bed file with the peaks
+# also save a bed file that is reduced to chromosome 1
+# if there is an error just skip to the next file
+for (i in seq_along(fileNames)) {
+  indexBam(fileNames[i])
+  
+  skip <- FALSE
+  tryCatch(peaks <- callPeaks(fileNames[i], fragLength=fragLen[i]), error = function(e) { skip <<- TRUE})
+  if(skip) { next }
+  
+  chr1Ppeaks <- peaks[seqnames(peaks) == "chr1"]
+  rtracklayer::export.bed(peaks, bedFiles[i])
+  rtracklayer::export.bed(chr1Ppeaks, chr1bedFiles[i])
+}
+
+```
+With the pipeline setup we can go grab lunch.
+
+Now to deal with the files that caused errors or did not produce output. Interestingly this was the replicate 2 of the MM.1S files for H3K27Ac and H3K4Me3. The reason appears to have been the fragment length causing a out of bounds error. I then started reducing the fragment length and it worked again.
+
+So are these fragments just shorter?
+
+I have also noticed that the shorter the fragmentLength parameter given to the function, the more peaks seem to be identified.
+
+```{r}
+peaks <- callPeaks("MM.1S_H3K4Me3_GRCh38_Repl2.bam", fragLength=300L)
+chr1Ppeaks <- peaks[seqnames(peaks) == "chr1"]
+
+rtracklayer::export.bed(peaks, "MM.1S_H3K4Me3_GRCh38_Repl2_peaks.bed")
+rtracklayer::export.bed(chr1Ppeaks, "MM.1S_H3K4Me3_GRCh38_Repl2_peaks_chr1.bed")
+```
+
+
+## Merging of disease replicates and healthy replicates
+```{r}
+#test
+for (i in seq_along(fileNames)) {
+  print(fileNames[i])
+  print(bedFiles[i])
+  print(chr1bedFiles[i])
+}
+```
+Lets try importing two replicates and merge them together
+
+```{r}
+peaks1 <- rtracklayer::import.bed("peaks/H3K27Ac/MM.1S_H3K27Ac_GRCh38_Repl1_peaks_chr1.bed")
+peaks2 <- rtracklayer::import.bed("peaks/H3K27Ac/MM.1S_H3K27Ac_GRCh38_Repl2_peaks_chr1.bed")
+
+bothPeaks <- c(peaks1, peaks2)
+mergedPeaks <- reduce(bothPeaks)
+
+lengths <- c(length(peaks1), length(peaks2), length(mergedPeaks))
+lengths
+```
+This might not be right as the resulting merged data has the same length as one of the peak files. Lets try it with another set of peaks of the H929 cell line.
+
+```{r}
+peaks1 <- rtracklayer::import.bed("peaks/H3K27Ac/H929_H3K27Ac_GRCh38_Repl1_peaks_chr1.bed")
+peaks2 <- rtracklayer::import.bed("peaks/H3K27Ac/H929_H3K27Ac_GRCh38_Repl2_peaks_chr1.bed")
+
+bothPeaks <- c(peaks1, peaks2)
+mergedPeaks <- reduce(bothPeaks)
+
+lengths <- c(length(peaks1), length(peaks2), length(mergedPeaks))
+lengths
+```
+This does look better since the total number of peaks is larger.
+It also gives us a hint about how consistent the data between biological replicates is. We could for example calculate the percentage of peaks out of the merged Peaks which were present in both files:
+
+NOPE
+
+```{r}
+peaksinBoth <- length(peaks1) + length(peaks2) - length(mergedPeaks)
+peaksinBoth / length(mergedPeaks) * 100
+```
+Now we have to export the peaks data. After imporing again I looked at the data structure. We can see that the score value is gone and the name as well. But mering the peaks would probably invalidate any score assigned to the peaks anyway 
+
+```{r}
+rtracklayer::export.bed(mergedPeaks, "test.bed")
+test <- rtracklayer::import.bed("test.bed")
+test
+```
+## Short data exploration and interesting finds
+
+I looked through the peaks listed above by the test bed file from the H929 H3K27Ac. The second peak at chr1:827282-827496 is interesting. It is in the LINC01128 gene, which codes for a Long non-coding RNA. It has been described in the literature in tumor cells as promoting proliferation by activating a miRNA.
+Before this I had not heard about this class of RNA's. 
+https://www.ncbi.nlm.nih.gov/gene/643837
+https://www.nature.com/articles/nrm.2017.104
+
+Peak 3 at chr1:944206-944442 is located within NOC2L and SAMD11 which are known to interact with histone modifications themselves. Peak 3 is also NOC2L
+
+## Setting up the Peak merging pipeline
+We first need to merge both replicates for MM.1S and H929. Then we can merge both merged peaks of each cell line together.
+
+```{r}
+marks <- c("H3K4me3", "H3K9Me3", "H3K27Me3", "H3K27Ac")
+filePaths <- c("peaks/MARK/H929_MARK_GRCh38_Repl1_peaks.bed")
+for (i in 1:4) {
+  # generate paths for both replicates
+  currPath1 <- gsub("MARK", marks[i], filePaths)
+  currPath2 <- gsub("Repl1", "Repl2", currPath1)
+  
+  # import both replicates
+  Repl1 <- rtracklayer::import.bed(currPath1)
+  Repl2 <- rtracklayer::import.bed(currPath2)
+  
+  # Merge peaks
+  bothPeaks <- c(Repl1, Repl2)
+  mergedPeaks <- reduce(bothPeaks)
+  
+  # report merged data information
+  peaksinBoth <- length(peaks1) + length(peaks2) - length(mergedPeaks)
+  print(peaksinBoth / length(mergedPeaks) * 100)
+  
+  # export merged peaks
+  mergedPath <- gsub("Repl1", "merged", currPath1)
+  rtracklayer::export.bed(mergedPeaks, mergedPath)
+}
+```
+The same has to be repeated for the chr1 peaks
+```{r}
+marks <- c("H3K4me3", "H3K9Me3", "H3K27Me3", "H3K27Ac")
+filePaths <- c("peaks/MARK/H929_MARK_GRCh38_Repl1_peaks_chr1.bed")
+for (i in 1:4) {
+  # generate paths for both replicates
+  currPath1 <- gsub("MARK", marks[i], filePaths)
+  currPath2 <- gsub("Repl1", "Repl2", currPath1)
+  
+  # import both replicates
+  Repl1 <- rtracklayer::import.bed(currPath1)
+  Repl2 <- rtracklayer::import.bed(currPath2)
+  
+  # Merge peaks
+  bothPeaks <- c(Repl1, Repl2)
+  mergedPeaks <- reduce(bothPeaks)
+  
+  # report merged data information
+  peaksinBoth <- length(peaks1) + length(peaks2) - length(mergedPeaks)
+  print(peaksinBoth / length(mergedPeaks) * 100)
+  
+  # export merged peaks
+  mergedPath <- gsub("Repl1", "merged", currPath1)
+  rtracklayer::export.bed(mergedPeaks, mergedPath)
+}
+```
+The same for merging both disease cell lines
+```{r}
+marks <- c("H3K4me3", "H3K9Me3", "H3K27Me3", "H3K27Ac")
+filePaths <- c("peaks/MARK/MM.1S_MARK_GRCh38_merged_peaks_chr1.bed")
+for (i in 1:4) {
+  # generate paths for both replicates
+  currPath1 <- gsub("MARK", marks[i], filePaths)
+  currPath2 <- gsub("MM.1S", "H929", currPath1)
+  
+  # import both replicates
+  Repl1 <- rtracklayer::import.bed(currPath1)
+  Repl2 <- rtracklayer::import.bed(currPath2)
+  
+  # Merge peaks
+  bothPeaks <- c(Repl1, Repl2)
+  mergedPeaks <- reduce(bothPeaks)
+  
+  # report merged data information
+  peaksinBoth <- length(peaks1) + length(peaks2) - length(mergedPeaks)
+  print(peaksinBoth / length(mergedPeaks) * 100)
+  
+  # export merged peaks
+  mergedPath <- gsub("MM.1S", "Diseased", currPath1)
+  rtracklayer::export.bed(mergedPeaks, mergedPath)
+}
+```
+For the healthy B cells:
+```{r}
+marks <- c("H3K4me3", "H3K9Me3", "H3K27Me3", "H3K27Ac")
+filePaths <- c("peaks/MARK/MM.1S_MARK_GRCh38_merged_peaks.bed")
+healthy1 <- c("F27", "F43", "F27", "F27")
+healthy2 <- c("F43", "M37", "M21", "M37")
+for (i in 1:4) {
+  # generate paths for both replicates
+  currPath1 <- gsub("MARK", marks[i], filePaths)
+  currPath1 <- gsub("MM.1S", healthy1[i])
+  currPath2 <- gsub(healthy1[i], healthy2[i])
+  
+  # import both replicates
+  Repl1 <- rtracklayer::import.bed(currPath1)
+  Repl2 <- rtracklayer::import.bed(currPath2)
+  
+  # Merge peaks
+  bothPeaks <- c(Repl1, Repl2)
+  mergedPeaks <- reduce(bothPeaks)
+  
+  # report merged data information
+  peaksinBoth <- length(peaks1) + length(peaks2) - length(mergedPeaks)
+  print(peaksinBoth / length(mergedPeaks) * 100)
+  
+  # export merged peaks
+  mergedPath <- gsub(healthy1[i], "Healthy", currPath1)
+  rtracklayer::export.bed(mergedPeaks, mergedPath)
+}
+```
