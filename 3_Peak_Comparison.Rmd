@@ -1,0 +1,145 @@
+---
+title: "3_Peak Comparison"
+author: "Laurin Schaller"
+date: "2023-06-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(epiwraps)
+  library(rtracklayer)
+  library(GenomicRanges)
+})
+```
+
+
+## Subsetting to chromosome 1
+
+First we want to subset all the bigBed-files we downloaded from ENCODE to chromosome 1 for reduced sizes.
+The following function uses a pythonic approach to looping all the histone marks which have  the same folder names. Within these folders it gets all the files and then goes through these within a nested loop. 
+
+There all files are loaded with rtracklayer and a subst is made using GenomicRanges seqnames() function to only use the ranges listed as "chr1". These are then exported again using rtracklayer.
+
+```{r}
+marks <- c("H3K4Me3", "H3K9Me3", "H3K27Ac", "H3K27Me3")
+for (mark in marks) {
+  print(mark)
+
+  path <- "ENCODE_peaks/MARK/"
+  currPath <- sub("MARK", mark, path)
+  print(currPath)
+  
+  files <- list.files(path=currPath)
+  for (file in files) {
+    filePath <- paste(currPath, file, sep = "")
+    peaks <- rtracklayer::import(filePath)
+    chr1peaks <- peaks[seqnames(peaks) == "chr1"]
+    
+    chr1Path <- sub(".bigBed", "_chr1.bigBed", filePath)
+    rtracklayer::export(chr1peaks, chr1Path)
+  }
+}
+```
+## Merging files within diseased and healthy groups
+
+Here I am using the reduce function which will simply combine peaks if they overlap. An alternative would be disjoin.
+
+Since I merge peaks the metadata is lost, but it is not valid anymore anyways. However rtracklayer expects a score value to be able to export to bigBed. So I manually assing each range a score of 1000.
+
+```{r}
+marks <- c("H3K4Me3", "H3K9Me3", "H3K27Ac", "H3K27Me3")
+h1 <- c("F27", "F43", "F27", "F27")
+h2 <- c("F43", "M37", "M37", "M37")
+
+for (i in 1:4) {
+  print(marks[i])
+
+  path <- "ENCODE_peaks/MARK/"
+  currPath <- sub("MARK", marks[i], path)
+  print(currPath)
+  
+  diseased1 <- paste(currPath, "MM.1S_", marks[i], "_GRCh38.bigBed", sep = "")
+  diseased2 <- paste(currPath, "H929_", marks[i], "_GRCh38.bigBed", sep = "")
+  print(diseased1)
+  print(diseased2)
+  peaksD1 <- rtracklayer::import(diseased1)
+  peaksD2 <- rtracklayer::import(diseased2)
+  
+  # Merge peaks
+  bothPeaks <- c(peaksD1, peaksD2)
+  mergedPeaks <- reduce(bothPeaks)
+  mergedPeaks$score <- 1000
+  
+  exportPath <- paste(currPath, "Diseased_", marks[i], "_GRCh38.bigBed", sep = "")
+  rtracklayer::export(mergedPeaks, exportPath)
+  
+  healthy1 <- paste(currPath, h1[i], "_", marks[i], "_GRCh38.bigBed", sep = "")
+  healthy2 <- paste(currPath, h2[i], "_", marks[i], "_GRCh38.bigBed", sep = "")
+  print(healthy1)
+  print(healthy2)
+  
+  peaksH1 <- rtracklayer::import(healthy1)
+  peaksH2 <- rtracklayer::import(healthy2)
+  
+  # Merge peaks
+  bothPeaks <- c(peaksH1, peaksH2)
+  mergedPeaks <- reduce(bothPeaks)
+  mergedPeaks$score <- 1000
+  
+  exportPath <- paste(currPath, "Healthy_", marks[i], "_GRCh38.bigBed", sep = "")
+  rtracklayer::export(mergedPeaks, exportPath)
+}
+
+```
+Due to lazyness the same for chr1
+```{r}
+marks <- c("H3K4Me3", "H3K9Me3", "H3K27Ac", "H3K27Me3")
+h1 <- c("F27", "F43", "F27", "F27")
+h2 <- c("F43", "M37", "M37", "M37")
+
+for (i in 1:4) {
+  print(marks[i])
+
+  path <- "ENCODE_peaks/MARK/"
+  currPath <- sub("MARK", marks[i], path)
+  print(currPath)
+  
+  diseased1 <- paste(currPath, "MM.1S_", marks[i], "_GRCh38_chr1.bigBed", sep = "")
+  diseased2 <- paste(currPath, "H929_", marks[i], "_GRCh38_chr1.bigBed", sep = "")
+  print(diseased1)
+  print(diseased2)
+  peaksD1 <- rtracklayer::import(diseased1)
+  peaksD2 <- rtracklayer::import(diseased2)
+  
+  # Merge peaks
+  bothPeaks <- c(peaksD1, peaksD2)
+  mergedPeaks <- reduce(bothPeaks)
+  mergedPeaks$score <- 1000
+  
+  exportPath <- paste(currPath, "Diseased_", marks[i], "_GRCh38_chr1.bigBed", sep = "")
+  rtracklayer::export(mergedPeaks, exportPath)
+  
+  healthy1 <- paste(currPath, h1[i], "_", marks[i], "_GRCh38.bigBed_chr1", sep = "")
+  healthy2 <- paste(currPath, h2[i], "_", marks[i], "_GRCh38.bigBed_chr1", sep = "")
+  print(healthy1)
+  print(healthy2)
+  
+  peaksH1 <- rtracklayer::import(healthy1)
+  peaksH2 <- rtracklayer::import(healthy2)
+  
+  # Merge peaks
+  bothPeaks <- c(peaksH1, peaksH2)
+  mergedPeaks <- reduce(bothPeaks)
+  mergedPeaks$score <- 1000
+  
+  exportPath <- paste(currPath, "Healthy_", marks[i], "_GRCh38_chr1.bigBed", sep = "")
+  rtracklayer::export(mergedPeaks, exportPath)
+}
+
+```
+
