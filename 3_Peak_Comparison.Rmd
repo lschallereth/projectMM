@@ -124,8 +124,8 @@ for (i in 1:4) {
   exportPath <- paste(currPath, "Diseased_", marks[i], "_GRCh38_chr1.bigBed", sep = "")
   rtracklayer::export(mergedPeaks, exportPath)
   
-  healthy1 <- paste(currPath, h1[i], "_", marks[i], "_GRCh38.bigBed_chr1", sep = "")
-  healthy2 <- paste(currPath, h2[i], "_", marks[i], "_GRCh38.bigBed_chr1", sep = "")
+  healthy1 <- paste(currPath, h1[i], "_", marks[i], "_GRCh38_chr1.bigBed", sep = "")
+  healthy2 <- paste(currPath, h2[i], "_", marks[i], "_GRCh38_chr1.bigBed", sep = "")
   print(healthy1)
   print(healthy2)
   
@@ -141,5 +141,142 @@ for (i in 1:4) {
   rtracklayer::export(mergedPeaks, exportPath)
 }
 
+```
+## Finding poised sites -> For later
+
+In order to find poised sites we look for overlaps in the peaks data between H3K4me3 and H3K27me3. OverlapsAny is not symetrical so I will try both ways. We will do this for heathly and diseased data separately.
+
+Just like in the excercise we will use the subset of H3K4Me3, which is less generous.
+
+```{r}
+disChr1H3K4Me3 <- rtracklayer::import("ENCODE_peaks/H3K4Me3/Diseased_H3K4Me3_GRCh38.bigBed")
+disChr1H3K27Me3 <- rtracklayer::import("ENCODE_peaks/H3K27Me3/Diseased_H3K27Me3_GRCh38.bigBed")
+
+test <- overlapsAny(disChr1H3K27Me3, disChr1H3K4Me3)
+table(test)
+test <- overlapsAny(disChr1H3K4Me3, disChr1H3K27Me3)
+table(test)
+
+rtracklayer::export(disChr1H3K4Me3[test], "ENCODE_peaks/Bivalent/Diseased_Bivalent_GRCh38.bed")
+```
+
+## Peak-wise comparisons
+
+First lets just try an upset plot, Nevermind
+
+```{r}
+disChr1H3K4Me3 <- rtracklayer::import("ENCODE_peaks/H3K4Me3/Diseased_H3K4Me3_GRCh38_chr1.bigBed")
+disChr1H3K9Me3 <- rtracklayer::import("ENCODE_peaks/H3K9Me3/Diseased_H3K9Me3_GRCh38_chr1.bigBed")
+disChr1H3K27Ac <- rtracklayer::import("ENCODE_peaks/H3K27Ac/Diseased_H3K27Ac_GRCh38_chr1.bigBed")
+disChr1H3K27Me3 <- rtracklayer::import("ENCODE_peaks/H3K27Me3/Diseased_H3K27Me3_GRCh38_chr1.bigBed")
+
+helChr1H3K4Me3 <- rtracklayer::import("ENCODE_peaks/H3K4Me3/Healthy_H3K4Me3_GRCh38_chr1.bigBed")
+helChr1H3K9Me3 <- rtracklayer::import("ENCODE_peaks/H3K9Me3/Healthy_H3K9Me3_GRCh38_chr1.bigBed")
+helChr1H3K27Ac <- rtracklayer::import("ENCODE_peaks/H3K27Ac/Healthy_H3K27Ac_GRCh38_chr1.bigBed")
+helChr1H3K27Me3 <- rtracklayer::import("ENCODE_peaks/H3K27Me3/Healthy_H3K27Me3_GRCh38_chr1.bigBed")
+
+peaks <- list(disChr1H3K4Me3, disChr1H3K9Me3, disChr1H3K27Ac, disChr1H3K27Me3)
+names(peaks) <- c("1", "2", "3", "4")
+regionUpset(peaks)
+```
+
+We first want a table to see how many peaks overlap between diseased and healthy B-cells for a mark. Doing overlaps any and then printing the table of true and false values gives us thid data.
+
+We have about a 50:50 split of peaks H3K4Me3, meaning that we can find around 50% of peaks only in the diseased models and not in the healthy ones.
+
+We now want to export the disease-exclusive peaks, but we can not use the overlaps values to subset the diseased peaks directly. Instead we want to invert the *TRUE* and *FALSE* values, so that we get the peaks that do not overlap. In R this can be done conveniently with the *!* operator.
+
+Then we export these peaks as unique peaks. Here I suddenly got problems as there were two columns with strand information. One in the format * and one in . format
+
+```{r}
+disChr1H3K4Me3 <- rtracklayer::import("ENCODE_peaks/H3K4Me3/Diseased_H3K4Me3_GRCh38_chr1.bigBed")
+helChr1H3K4Me3 <- rtracklayer::import("ENCODE_peaks/H3K4Me3/Healthy_H3K4Me3_GRCh38_chr1.bigBed")
+
+overlaps <- overlapsAny(disChr1H3K4Me3, helChr1H3K4Me3)
+table(overlaps)
+
+nonOverlaps <- !overlaps
+table(nonOverlaps)
+
+nonOverlapsPeaks <- disChr1H3K4Me3[nonOverlaps]
+length(nonOverlapsPeaks)
+
+rtracklayer::export(nonOverlapsPeaks, "ENCODE_peaks/H3K4Me3/Diseased_Exclusive_H3K4Me3_GRCh38_chr1.bed")
+```
+Automated version of the pipeline:
+Results are interesting, for most marks there is also around a 50:50 split. But not for H3K27Me3. There we find a much higher proportion of exclusive peaks.
+
+```{r}
+marks <- c("H3K4Me3", "H3K9Me3", "H3K27Ac", "H3K27Me3")
+
+for (mark in marks) {
+  diseasedPath <- "ENCODE_peaks/MARK/Diseased_MARK_GRCh38_chr1.bigBed"
+  diseasedPath <- gsub("MARK", mark, diseasedPath)
+  print(diseasedPath)
+  diseasedPeaks <- rtracklayer::import(diseasedPath)
+  
+  healthyPath <- "ENCODE_peaks/MARK/Healthy_MARK_GRCh38_chr1.bigBed"
+  healthyPath <- gsub("MARK", mark, healthyPath)
+  print(healthyPath)
+  healthyPeaks <- rtracklayer::import(healthyPath)
+  
+  overlaps <- overlapsAny(diseasedPeaks, healthyPeaks)
+  print(table(overlaps))
+
+  nonOverlaps <- !overlaps
+  print(table(nonOverlaps))
+
+  nonOverlapsPeaks <- diseasedPeaks[nonOverlaps]
+  print(length(nonOverlapsPeaks))
+
+  exportPath <- "ENCODE_peaks/MARK/Diseased_Exclusive_MARK_GRCh38_chr1.bed"
+  exportPath <- gsub("MARK", mark, exportPath)
+  rtracklayer::export(nonOverlapsPeaks, exportPath)
+}
+```
+
+Doing it the other way for peaks exclusive to healthy B-cells:
+```{r}
+marks <- c("H3K4Me3", "H3K9Me3", "H3K27Ac", "H3K27Me3")
+
+for (mark in marks) {
+  diseasedPath <- "ENCODE_peaks/MARK/Diseased_MARK_GRCh38_chr1.bigBed"
+  diseasedPath <- gsub("MARK", mark, diseasedPath)
+  print(diseasedPath)
+  diseasedPeaks <- rtracklayer::import(diseasedPath)
+  
+  healthyPath <- "ENCODE_peaks/MARK/Healthy_MARK_GRCh38_chr1.bigBed"
+  healthyPath <- gsub("MARK", mark, healthyPath)
+  print(healthyPath)
+  healthyPeaks <- rtracklayer::import(healthyPath)
+  
+  overlaps <- overlapsAny(healthyPeaks, diseasedPeaks)
+  print(table(overlaps))
+
+  nonOverlaps <- !overlaps
+  print(table(nonOverlaps))
+
+  nonOverlapsPeaks <- healthyPeaks[nonOverlaps]
+  print(length(nonOverlapsPeaks))
+
+  exportPath <- "ENCODE_peaks/MARK/Healthy_Exclusive_MARK_GRCh38_chr1.bed"
+  exportPath <- gsub("MARK", mark, exportPath)
+  rtracklayer::export(nonOverlapsPeaks, exportPath)
+}
+```
+## Basic Statistics
+From the information generated before we can do some basic statistics
+data structure: 
+- unique diseased peaks
+- unique healthy peaks
+- peaks shared
+```{r}
+H3K4Me3 <- c(24631, 9792, 47173+32884-24631-9792)
+sum(H3K4Me3)
+pie(H3K4Me3, c("exclusive diseased", "exclusive healthy", "shared peaks"))
+
+H3K9Me3 <- c(6796, 149416, 13749+155871-6796-149416)
+sum(H3K9Me3)
+pie(H3K9Me3, c("exclusive diseased", "exclusive healthy", "shared peaks"))
 ```
 
