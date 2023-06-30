@@ -1,0 +1,111 @@
+---
+title: "4_Motif_Analysis_H3K27Ac"
+author: "Laurin Schaller"
+date: "2023-06-26"
+output: html_document
+---
+
+## Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(epiwraps)
+  library(rtracklayer)
+  library(GenomicRanges)
+  library(AnnotationHub)
+  library(MotifDb)
+  library(universalmotif)
+  library(Rsamtools)
+  library(Biostrings)
+})
+```
+
+## Reference genome GRCh38
+
+Is also called *hg38* for shorthand
+
+```{r}
+ah <- AnnotationHub()
+query(ah , c("UCSC" ,"hg38"))
+hg38 <- import(genome)
+hg38chr1 <- hg38$chr1
+export(hg38chr1, "hg38_chr1.fasta")
+export(hg38, "hg38.fasta")
+```
+
+## Loading MM-exclusive H3K27Ac peaks and searching database of motifs
+
+Here we are using the HOCOMOCO database which is curated. The high quality motifs are in coreA-coreB which we will use here for motif scanning.
+
+```{r}
+MMexclusivesChr1 <- rtracklayer::import.bed("ENCODE_peaks/H3K27Ac/Diseased_Exclusive_H3K27Ac_GRCh38_chr1.bed")
+motifs <- MotifDb::query(MotifDb, andStrings=c("hsapiens"), orStrings=c("HOCOMOCOv11-core-A", "HOCOMOCOv11-core-B", "HOCOMOCOv11-core-C"))
+motifs
+head(names(motifs))
+```
+Before we can scan for these motifs we first need to take our peeks GRanges and find the corresponding sequeces which are located there. Thankfully subsetting of the DNAStringset can be done by using the ranges of the GRanges object.
+
+We can verify that the sequence is in correct length by comparing it to the summed with of all peaks:
+
+```{r}
+peakSequences <- hg38chr1[ranges(MMexclusivesChr1)]
+peakSequences2 <- Biostrings::getSeq(genome, MMexclusivesChr1)
+export(peakSequences2, "hg38_chr1_peak_sequences.fasta")
+sum(width(MMexclusivesChr1))
+sum(width(peakSequences2))
+length(peakSequences)
+```
+
+Now we build a big function to scan the sequences of the peaks and find occurences of all the 400 motifs in the HOCOMOCO database.
+
+```{r}
+motifNames <- names(motifs)
+motifCounts <- c()
+
+for (name in motifNames[1:5]) {
+  #print(name)
+  motif <- motifs[[name]]
+  motif <- convert_motifs(motif, class="TFBSTools-PFMatrix")
+  motif_instances <- findMotifInstances(motif = motif, seqs = peakSequences2, genome = Rsamtools::FaFile("hg38_chr1.fasta"), out="positions")
+  motifCounts <- c(motifCounts, length(motif_instances))
+  print(length(motif_instances))
+}
+```
+jjjj
+```{r}
+# Function provided in practical for scanning:
+#' findMotifInstances
+#'
+#' A wrapper around TFBSTools for scanning motif occurence, handling the 
+#' coordinate conversion as `memes` does.
+#' 
+#' @param seqs A set of sequences, e.g. `DNAStringSet`, optionally with 
+#'   coordinate as names to enable conversion.
+#' @param motif A motif, in any format recognized by `universalmotif`
+#' @param keepMatchedSeq Logical; whether to keep the matched sequence.
+#' @param ... Passed to `TFBSTools::searchSeq`; can for instance be used to set
+#'   the number of threads to use, e.g. with `mc.cores=2`
+#'
+#' @return A `GRanges` object
+findMotifInstances <- function(seqs, motif, keepMatchedSeq=FALSE, ...){
+  motif <- universalmotif::convert_motifs(motif, "TFBSTools-PWMatrix")
+  x <- suppressWarnings(TFBSTools::searchSeq(motif, subject=seqs))
+  print(x)
+  print(x[2])
+  peaks <- strsplit(gsub("-",":",names(seqs)), ":")
+ 
+  x <- as(x, "GRanges")
+  score(x) <- x$absScore
+  keepFields <- c("score","relScore")
+  if(keepMatchedSeq) keepFields <- c(keepFields, "siteSeqs")
+  mcols(x) <- mcols(x)[,intersect(colnames(mcols(x)), keepFields)]
+  x
+}
+```
+
+
+
